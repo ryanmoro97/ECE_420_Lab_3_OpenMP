@@ -29,7 +29,6 @@ int elimination(thread_count){
 
     GET_TIME(start);
 
-    // Gaussian elimination
     #pragma omp parallel num_threads(thread_count) shared() private()
     {
     // eliminate elements below the diagonal to zero one column after another
@@ -61,7 +60,7 @@ int elimination(thread_count){
                     index[k] = row;
                 }
             }
-            // Elimination
+            // Gaussian elimination
             #pragma omp for
             for(i = k+1; i < size; i++){
                 temp = A[index[i]][k] / A[index[k]][k];
@@ -89,7 +88,8 @@ int elimination(thread_count){
 
     GET_TIME(end);
     Lab3SaveOutput(x, size, end-start);
-
+    DestroyVec(x);
+    DestroyMat(A, size);
     free(index);
     return 0;
 }
