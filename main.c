@@ -7,13 +7,14 @@
 
 
 // Gaussian Jordan elimination
-int elimination(thread_count){
+int elimination(int thread_count){
     double **A;
     int size;
     double *x;
     int i, k, j, row, max, max_index, local_max, local_index;
     int *index;
-
+    // local_max=0;
+    // local_index=0;
     double start, end, temp;
 
     if(Lab3LoadInput(&A, &size) == 1){
@@ -29,23 +30,27 @@ int elimination(thread_count){
 
     GET_TIME(start);
 
-    #pragma omp parallel num_threads(thread_count) shared() private()
-    {
+
     // eliminate elements below the diagonal to zero one column after another
-        for(k = 0; k < size-1; k++){
-            /*Pivoting
-            from row k to row n, find the row kp that has the maximum
-            absolute value of the element in the kth column */
+    for(k = 0; k < size-1; k++){
+        // printf("%d\n",k);
+        /*Pivoting
+        from row k to row n, find the row kp that has the maximum
+        absolute value of the element in the kth column */
+        #pragma omp parallel num_threads(thread_count) private(row, i, j, local_max, local_index)
+            // shared(x, max, max_index, index, A) private(local_max, local_index, row, temp)
+        {
             max = 0;
-            #pragma omp for // parallel? private row?
+            local_max=0;
+            #pragma omp parallel for num_threads(thread_count)
             for(row = k; row < size; row++){
-                if(fabs(A[index[row]][k]) > max){
+                if(fabs(A[index[row]][k]) > local_max){
                     local_max = fabs(A[index[row]][k]);
                     local_index = row;
                 }
             }
-            #pragma omp critical
             if(local_max > max){
+                #pragma omp critical
                 max = local_max;
                 max_index = local_index;
             }
@@ -61,29 +66,34 @@ int elimination(thread_count){
                 }
             }
             // Gaussian elimination
-            #pragma omp for
-            for(i = k+1; i < size; i++){
+            #pragma omp single
+            {for(i = k+1; i < size; i++){
                 temp = A[index[i]][k] / A[index[k]][k];
+                // #pragma omp parallel for num_threads(thread_count)
                 for(j = k; j < size+1; j++){
                     A[index[i]][j] = A[index[i]][j] - temp * A[index[k]][j];
                 }
             }
+          }
+
         }
+    }
 
         // Jordan elimination
-        #pragma omp for
-        for(k = size-1; k > 0; k--){
-            for(i = 0; i < k; i++){
-                A[index[i]][size] = A[index[i]][size] - ((A[index[i]][k] / A[index[k]][k]) * A[index[k]][size]);
-                A[index[i]][k] = 0;
-            }
-        }
 
-        // Final solution
-        #pragma omp for
-        for(i = 0; i < size; i++){
-            x[i] = A[index[i]][size] / A[index[i]][i];
+    for(k = size-1; k > 0; k--){
+        #pragma omp parallel for num_threads(thread_count)
+        for(i = 0; i < k; i++){
+            A[index[i]][size] = A[index[i]][size] - ((A[index[i]][k] / A[index[k]][k]) * A[index[k]][size]);
+            A[index[i]][k] = 0;
         }
+    }
+
+
+    // Final solution
+    #pragma omp parallel for num_threads(thread_count)
+    for(i = 0; i < size; i++){
+        x[i] = A[index[i]][size] / A[index[i]][i];
     }
 
     GET_TIME(end);

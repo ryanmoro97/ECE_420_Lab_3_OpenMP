@@ -1,20 +1,24 @@
 CC=gcc
-CFLAGS=-Wall -O3
-LDFLAGS=-lm -lpthread
-OBJECTS=main.o lab3IO.o
+CFLAGS=-Wall -g
+LDFLAGS=-lm -lpthread -fopenmp
+OBJECTS=main.o Lab3IO.o
 
-all: main
+all: main datagen serialtester
 
 # Linker:
-main: main.o lab3IO.o
+main: main.o Lab3IO.o
 	$(CC) $(CFLAGS) -o $@ $(OBJECTS) $(LDFLAGS)
 
 # Compilation commands:
-lab3_IO.o: lab3IO.c lab3IO.h
+Lab3_IO.o: Lab3IO.c Lab3IO.h
 	$(CC) $(CFLAGS) -c lab3IO.c -o lab3IO.o
 
 %.o: %.c
-	$(CC) $(CFLAGS) -c $< -o $@
+	$(CC) $(CFLAGS) -c $< -o $@ -fopenmp
+datagen:
+	gcc datagen.c Lab3IO.c -o datagen
+serialtester:
+	gcc serialtester.c Lab3IO.c -o serialtester -lm
 
 clean:
-	rm *.o main
+	rm *.o main serialtester datagen data_input data_output
