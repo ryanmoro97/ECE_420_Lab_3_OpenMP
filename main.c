@@ -33,15 +33,16 @@ int elimination(int thread_count){
 
     // eliminate elements below the diagonal to zero one column after another
     for(k = 0; k < size-1; k++){
-        // printf("%d\n",k);
         /*Pivoting
         from row k to row n, find the row kp that has the maximum
         absolute value of the element in the kth column */
+
+        // Parallelize inner loop instead of outer since outer has dependencies. You could maybe try the outer loop with a lot more private stuff
         #pragma omp parallel num_threads(thread_count) private(row, i, j, local_max, local_index)
-            // shared(x, max, max_index, index, A) private(local_max, local_index, row, temp)
         {
             max = 0;
             local_max=0;
+            local_index=0;
             #pragma omp parallel for num_threads(thread_count)
             for(row = k; row < size; row++){
                 if(fabs(A[index[row]][k]) > local_max){
@@ -69,7 +70,7 @@ int elimination(int thread_count){
             #pragma omp single
             {for(i = k+1; i < size; i++){
                 temp = A[index[i]][k] / A[index[k]][k];
-                // #pragma omp parallel for num_threads(thread_count)
+                // could maybe put a parallel for loop here with a critical section and barrier
                 for(j = k; j < size+1; j++){
                     A[index[i]][j] = A[index[i]][j] - temp * A[index[k]][j];
                 }
@@ -80,20 +81,29 @@ int elimination(int thread_count){
     }
 
         // Jordan elimination
-
+    // Could try the outer loop and make a lot more private variables
     for(k = size-1; k > 0; k--){
-        #pragma omp parallel for num_threads(thread_count)
-        for(i = 0; i < k; i++){
-            A[index[i]][size] = A[index[i]][size] - ((A[index[i]][k] / A[index[k]][k]) * A[index[k]][size]);
-            A[index[i]][k] = 0;
+        #pragma omp parallel num_threads(thread_count)
+        {
+            #pragma omp parallel for num_threads(thread_count) shared(A) firstprivate(k) private(i)
+            for(i = 0; i < k; i++){
+              // ciritcal section and barrier here because for increasing values of k, some stuff might get overwritten if the order is wrong
+              #pragma omp critical
+                A[index[i]][size] = A[index[i]][size] - ((A[index[i]][k] / A[index[k]][k]) * A[index[k]][size]);
+                A[index[i]][k] = 0;
+            }
+            #pragma omp barrier
         }
     }
 
 
     // Final solution
-    #pragma omp parallel for num_threads(thread_count)
-    for(i = 0; i < size; i++){
-        x[i] = A[index[i]][size] / A[index[i]][i];
+    #pragma omp parallel num_threads(thread_count)
+    {
+      #pragma omp parallel for num_threads(thread_count)
+      for(i = 0; i < size; i++){
+          x[i] = A[index[i]][size] / A[index[i]][i];
+      }
     }
 
     GET_TIME(end);
