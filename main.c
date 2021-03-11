@@ -66,8 +66,7 @@ int elimination(int thread_count){
                 {
                     if (max_index != k) {
                         row = index[max_index];
-                        s
-                                index[max_index] = index[k];
+                        index[max_index] = index[k];
                         index[k] = row;
                     }
                 }
